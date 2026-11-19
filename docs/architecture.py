@@ -56,7 +56,7 @@ g.node("api", pill("Kubernetes API", "kubernetes"))
 g.node("nodes", card("k3s nodes", "k3s", "#326CE5", [
     ("w", "workers", "one at a time"),
     ("cp", "control-plane", "last"),
-])) 
+]))
 g.node("podhost", card("Podman host", "podman", "#892CA0", [
     ("stack", "compose stack", "systemd unit or podman-compose"),
     ("bak", "backups", "compose, .env, data files"),
@@ -74,8 +74,8 @@ g.edge("col:pod:e", "podhost:stack:w", label="pull, recreate")
 g.edge("col:pod:e", "podhost:bak:w", label="snapshot")
 with g.subgraph() as s:
     s.attr(rank="same")
-    s.node("api"); s.node("nodes"); s.node("ubu"); s.node("podhost")
-    s.edge("api", "nodes", style="invis")
+    for n in ("api", "nodes", "ubu", "podhost"):
+        s.node(n)
 g.render(cleanup=True)
 
 # 2. How a release reaches Galaxy
