@@ -118,7 +118,7 @@
 
 - name: Report health command output
   ansible.builtin.debug:
-    msg: "{{ podman_compose_update_health.results | map(attribute='stdout_lines') | map('first', default='') | list }}"
+    msg: "{{ podman_compose_update_health.results | map(attribute='stdout') | map('split', '\n') | map('first') | list }}"
   when:
     - podman_compose_update_health_commands | length > 0
     - not ansible_check_mode
