@@ -11,6 +11,7 @@
           become: true
       vars:
         apt_upgrade_type: safe
+        apt_upgrade_async: 600
 
     - name: Reboot flag is a boolean
       ansible.builtin.assert:
