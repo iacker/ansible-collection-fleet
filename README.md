@@ -7,6 +7,8 @@ Rolling maintenance for small fleets, written for a real one: a three-node k3s
 cluster reached over Tailscale and a cloud VM running a podman-compose stack
 that other people use during the day.
 
+![How iacker.fleet works](docs/architecture.png)
+
 Each role does one job and refuses to continue when the situation is unsafe.
 
 | Role | What it does | Main guard |
@@ -84,6 +86,8 @@ Back up the database of any service that migrates its schema on start: without
 it, rolling back to the old image is not possible.
 
 ## Testing
+
+![Release pipeline](docs/release.png)
 
 CI runs `ansible-lint` (production profile), `ansible-test sanity`, builds the
 collection, and runs `apt_upgrade` and `podman_compose_update` for real on a
