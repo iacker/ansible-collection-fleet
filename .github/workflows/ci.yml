@@ -1,0 +1,50 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core ansible-lint
+      - run: ansible-lint
+
+  sanity:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible: [stable-2.18, stable-2.19, stable-2.20, stable-2.21]
+    steps:
+      - uses: ansible-community/ansible-test-gh-action@release/v1
+        with:
+          ansible-core-version: ${{ matrix.ansible }}
+          testing-type: sanity
+
+  integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ansible_collections/iacker/fleet
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core podman-compose
+      - name: Build and install the collection
+        working-directory: ansible_collections/iacker/fleet
+        run: |
+          ansible-galaxy collection build
+          ansible-galaxy collection install iacker-fleet-*.tar.gz
+      - name: Run twice (second run must not break anything)
+        working-directory: ansible_collections/iacker/fleet/tests/integration
+        run: |
+          ansible-playbook -i localhost, site.yml
+          ansible-playbook -i localhost, site.yml

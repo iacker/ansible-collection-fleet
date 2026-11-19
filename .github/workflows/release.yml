@@ -1,0 +1,29 @@
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: galaxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core
+      - name: Tag must match galaxy.yml version
+        run: |
+          v=$(python -c "import yaml;print(yaml.safe_load(open('galaxy.yml'))['version'])")
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != galaxy.yml $v"; exit 1; }
+      - run: ansible-galaxy collection build
+      - name: Publish to Ansible Galaxy
+        run: ansible-galaxy collection publish iacker-fleet-*.tar.gz --api-key "$GALAXY_API_KEY"
+        env:
+          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+      - name: GitHub release with the artifact
+        run: gh release create "$GITHUB_REF_NAME" iacker-fleet-*.tar.gz --notes-file CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}

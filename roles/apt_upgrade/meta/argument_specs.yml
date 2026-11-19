@@ -1,0 +1,29 @@
+---
+argument_specs:
+  main:
+    short_description: Upgrade packages, never reboot, report whether a reboot is needed.
+    description:
+      - Runs an apt upgrade detached from the SSH session (async), keeps local config files.
+      - Sets the fact C(apt_upgrade_reboot_required) for a later reboot role.
+    options:
+      apt_upgrade_type:
+        type: str
+        choices: [dist, full, safe, "yes"]
+        default: dist
+        description: Value passed to the C(upgrade) option of ansible.builtin.apt.
+      apt_upgrade_autoremove:
+        type: bool
+        default: true
+        description: Remove packages that are no longer needed.
+      apt_upgrade_cache_valid_time:
+        type: int
+        default: 3600
+        description: Skip C(apt update) if the cache is younger than this (seconds).
+      apt_upgrade_async:
+        type: int
+        default: 1800
+        description: Maximum runtime of the detached upgrade (seconds). 0 runs it synchronously.
+      apt_upgrade_poll:
+        type: int
+        default: 10
+        description: Polling interval for the detached upgrade (seconds).

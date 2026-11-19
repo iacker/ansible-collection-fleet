@@ -1,0 +1,17 @@
+---
+# Run on the controller (hosts: localhost) before touching any node.
+- name: Read the Ready condition of every node
+  ansible.builtin.command: >-
+    {{ k3s_rolling_reboot_kubectl }} get nodes
+    -o jsonpath='{range .items[*]}{.metadata.name}={.status.conditions[?(@.type=="Ready")].status} {end}'
+  register: k3s_rolling_reboot_nodes
+  changed_when: false
+  check_mode: false
+
+- name: Refuse to start unless every node is Ready
+  ansible.builtin.assert:
+    that:
+      - "'=False' not in k3s_rolling_reboot_nodes.stdout"
+      - "'=Unknown' not in k3s_rolling_reboot_nodes.stdout"
+    fail_msg: "A node is not Ready, nothing was touched: {{ k3s_rolling_reboot_nodes.stdout }}"
+    success_msg: "All nodes Ready: {{ k3s_rolling_reboot_nodes.stdout }}"

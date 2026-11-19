@@ -1,0 +1,52 @@
+---
+argument_specs:
+  main:
+    short_description: Reboot one k3s node safely (cordon, optional drain, Ready wait, uncordon).
+    description:
+      - "Meant to run with C(serial: 1) and C(any_errors_fatal: true)."
+      - kubectl commands are delegated to the controller.
+      - On failure the play stops and prints the exact uncordon command.
+    options:
+      k3s_rolling_reboot_kubectl:
+        type: str
+        default: kubectl
+        description: kubectl command on the controller, for example C(kubectl --context prod).
+      k3s_rolling_reboot_node_name:
+        type: str
+        default: "{{ inventory_hostname }}"
+        description: Kubernetes node name, when it differs from the inventory name.
+      k3s_rolling_reboot_needed:
+        type: bool
+        default: "{{ apt_upgrade_reboot_required | default(false) }}"
+        description: Whether the node needs a reboot. Defaults to the fact set by iacker.fleet.apt_upgrade.
+      k3s_rolling_reboot_force:
+        type: bool
+        default: false
+        description: Reboot even if no reboot is required.
+      k3s_rolling_reboot_drain:
+        type: bool
+        default: false
+        description: Drain before rebooting. Off by default, see README.
+      k3s_rolling_reboot_drain_timeout:
+        type: str
+        default: 300s
+        description: Timeout passed to C(kubectl drain).
+      k3s_rolling_reboot_timeout:
+        type: int
+        default: 900
+        description: Maximum time to wait for the node to come back over SSH (seconds).
+      k3s_rolling_reboot_ready_retries:
+        type: int
+        default: 30
+        description: Attempts while waiting for the node to be Ready.
+      k3s_rolling_reboot_ready_delay:
+        type: int
+        default: 10
+        description: Seconds between Ready checks.
+  preflight:
+    short_description: Fail unless every node of the cluster is Ready. Run on the controller.
+    options:
+      k3s_rolling_reboot_kubectl:
+        type: str
+        default: kubectl
+        description: kubectl command on the controller.

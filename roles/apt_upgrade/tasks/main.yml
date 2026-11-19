@@ -1,0 +1,29 @@
+---
+- name: Upgrade packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: "{{ apt_upgrade_cache_valid_time }}"
+    upgrade: "{{ apt_upgrade_type }}"
+    autoremove: "{{ apt_upgrade_autoremove }}"
+    dpkg_options: force-confold,force-confdef
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  async: "{{ apt_upgrade_async }}"
+  poll: "{{ apt_upgrade_poll }}"
+  register: apt_upgrade_result
+
+- name: Check whether the OS asks for a reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: apt_upgrade_reboot_flag
+
+- name: Expose the reboot requirement to later roles
+  ansible.builtin.set_fact:
+    apt_upgrade_reboot_required: "{{ apt_upgrade_reboot_flag.stat.exists }}"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: packages
+      {{ 'upgraded' if apt_upgrade_result is changed else 'already up to date' }},
+      reboot required = {{ apt_upgrade_reboot_required }}

@@ -1,0 +1,134 @@
+---
+# Order: space -> backups -> pull -> recreate -> health -> cleanup -> checks.
+- name: Validate input
+  ansible.builtin.assert:
+    that: podman_compose_update_project_dir | length > 0
+    fail_msg: podman_compose_update_project_dir is required.
+    quiet: true
+
+- name: Compute the compose command and a timestamp for this run
+  ansible.builtin.set_fact:
+    podman_compose_update_cmd: >-
+      podman-compose -f {{ podman_compose_update_compose_file }}
+      {{ ('-p ' ~ podman_compose_update_project_name) if podman_compose_update_project_name else '' }}
+    podman_compose_update_stamp: "{{ '%Y%m%d-%H%M%S' | strftime }}"
+
+- name: Remove dangling images
+  ansible.builtin.command: podman image prune -f
+  register: podman_compose_update_prune_before
+  changed_when: podman_compose_update_prune_before.stdout | length > 0
+  when: podman_compose_update_prune_images | bool
+
+- name: Cap the systemd journal
+  ansible.builtin.command: journalctl --vacuum-size={{ podman_compose_update_journal_vacuum_size }}
+  become: true
+  register: podman_compose_update_vacuum
+  changed_when: "'freed 0B' not in podman_compose_update_vacuum.stderr"
+  when: podman_compose_update_journal_vacuum_size | length > 0
+
+- name: Locate the podman image store
+  ansible.builtin.command: podman info --format json
+  register: podman_compose_update_info
+  changed_when: false
+  check_mode: false
+  when: podman_compose_update_free_space_path | length == 0
+
+- name: Measure free space where images are stored
+  ansible.builtin.command: >-
+    df -BG --output=avail
+    {{ podman_compose_update_free_space_path
+       or (podman_compose_update_info.stdout | from_json).store.graphRoot }}
+  register: podman_compose_update_df
+  changed_when: false
+  check_mode: false
+
+- name: Refuse to pull without enough free space
+  ansible.builtin.assert:
+    that: podman_compose_update_free_gb | int >= podman_compose_update_min_free_gb | int
+    fail_msg: >-
+      Only {{ podman_compose_update_free_gb }} GB free on {{ inventory_hostname }}.
+      Pulling would fill the disk. Free some space first.
+    quiet: true
+  vars:
+    podman_compose_update_free_gb: "{{ podman_compose_update_df.stdout_lines[-1] | regex_replace('[^0-9]', '') }}"
+
+- name: Back up files before the update
+  ansible.builtin.copy:
+    src: "{{ item if item is abs else podman_compose_update_project_dir ~ '/' ~ item }}"
+    dest: "{{ (item if item is abs else podman_compose_update_project_dir ~ '/' ~ item) ~ '.bak.' ~ podman_compose_update_stamp }}"
+    remote_src: true
+    mode: "0600"
+  loop: "{{ podman_compose_update_backup_files }}"
+
+- name: Pull new images
+  ansible.builtin.command:
+    cmd: "{{ podman_compose_update_cmd }} pull"
+    chdir: "{{ podman_compose_update_project_dir }}"
+  async: "{{ podman_compose_update_pull_timeout }}"
+  poll: 15
+  changed_when: true
+
+- name: Recreate the stack through its systemd unit
+  ansible.builtin.systemd_service:
+    name: "{{ podman_compose_update_systemd_unit }}"
+    scope: user
+    state: restarted
+  when: podman_compose_update_systemd_unit | length > 0
+
+- name: Recreate the stack with podman-compose
+  ansible.builtin.command:
+    cmd: "{{ podman_compose_update_cmd }} up -d --force-recreate"
+    chdir: "{{ podman_compose_update_project_dir }}"
+  changed_when: true
+  when: podman_compose_update_systemd_unit | length == 0
+
+- name: Wait for expected containers to be running and healthy
+  ansible.builtin.command: podman ps --format json
+  register: podman_compose_update_ps
+  changed_when: false
+  until: >-
+    (podman_compose_update_ps.stdout | from_json | map(attribute='Names') | map('first')
+     | intersect(podman_compose_update_expected_containers) | length)
+    == (podman_compose_update_expected_containers | length)
+    and 'starting' not in podman_compose_update_ps.stdout
+    and 'unhealthy' not in podman_compose_update_ps.stdout
+  retries: "{{ podman_compose_update_wait_retries }}"
+  delay: "{{ podman_compose_update_wait_delay }}"
+  when:
+    - podman_compose_update_expected_containers | length > 0
+    - not ansible_check_mode
+
+- name: Reclaim space from replaced images
+  ansible.builtin.command: podman image prune -f
+  register: podman_compose_update_prune_after
+  changed_when: podman_compose_update_prune_after.stdout | length > 0
+  when: podman_compose_update_prune_images | bool
+
+- name: Run health commands
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop: "{{ podman_compose_update_health_commands }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: podman_compose_update_health
+  changed_when: false
+  failed_when: >-
+    podman_compose_update_health.rc != 0
+    or (item.expect | default('')) not in podman_compose_update_health.stdout
+  when: not ansible_check_mode
+
+- name: Report health command output
+  ansible.builtin.debug:
+    msg: "{{ podman_compose_update_health.results | map(attribute='stdout_lines') | map('first', default='') | list }}"
+  when:
+    - podman_compose_update_health_commands | length > 0
+    - not ansible_check_mode
+
+- name: Check URLs from the controller
+  ansible.builtin.uri:
+    url: "{{ item.url }}"
+    status_code: "{{ item.status | default([200]) }}"
+    follow_redirects: none
+  loop: "{{ podman_compose_update_url_checks }}"
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode

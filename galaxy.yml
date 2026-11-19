@@ -1,0 +1,32 @@
+namespace: iacker
+name: fleet
+version: 1.0.0
+readme: README.md
+authors:
+  - Erwan Billard (@iacker)
+description: >-
+  Safe, rolling maintenance for small fleets: apt upgrades over flaky SSH paths,
+  one-node-at-a-time k3s reboots, and guarded podman-compose stack updates.
+license:
+  - MIT
+tags:
+  - infrastructure
+  - linux
+  - k3s
+  - kubernetes
+  - podman
+  - apt
+  - ubuntu
+  - maintenance
+dependencies: {}
+repository: https://github.com/iacker/ansible-collection-fleet
+documentation: https://github.com/iacker/ansible-collection-fleet#readme
+issues: https://github.com/iacker/ansible-collection-fleet/issues
+build_ignore:
+  - .git
+  - .github
+  - .gitignore
+  - .ansible-lint
+  - .ansible
+  - "*.tar.gz"
+  - tests/output

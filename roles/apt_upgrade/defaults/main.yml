@@ -1,0 +1,9 @@
+---
+apt_upgrade_type: dist
+apt_upgrade_autoremove: true
+apt_upgrade_cache_valid_time: 3600
+# Detach apt from the SSH session. If the SSH path goes through a VPN whose
+# package is being upgraded (tailscale, wireguard...), a synchronous dpkg run
+# dies with the connection. Set to 0 to run synchronously.
+apt_upgrade_async: 1800
+apt_upgrade_poll: 10

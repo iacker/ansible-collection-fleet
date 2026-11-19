@@ -1,0 +1,37 @@
+---
+- name: Integration test on the CI runner
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Upgrade packages
+      ansible.builtin.include_role:
+        name: iacker.fleet.apt_upgrade
+        apply:
+          become: true
+      vars:
+        apt_upgrade_type: safe
+
+    - name: Reboot flag is a boolean
+      ansible.builtin.assert:
+        that: apt_upgrade_reboot_required is boolean
+
+    - name: Update a small compose stack
+      ansible.builtin.include_role:
+        name: iacker.fleet.podman_compose_update
+      vars:
+        podman_compose_update_project_dir: "{{ playbook_dir }}"
+        podman_compose_update_project_name: citest
+        podman_compose_update_min_free_gb: 1
+        podman_compose_update_expected_containers: [citest_web_1]
+        podman_compose_update_health_commands:
+          - { name: whoami, cmd: "curl -fsS http://127.0.0.1:18080/", expect: "Hostname" }
+        podman_compose_update_url_checks:
+          - { url: "http://127.0.0.1:18080/", status: [200] }
+
+    - name: The backup was written
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}"
+        patterns: "compose.yml.bak.*"
+      register: backups
+      failed_when: backups.matched < 1

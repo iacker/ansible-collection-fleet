@@ -1,0 +1,73 @@
+---
+argument_specs:
+  main:
+    short_description: Pull and recreate a podman-compose stack, refusing to fill the disk.
+    description:
+      - Checks free space before pulling, backs up files, recreates the stack
+        (through its user systemd unit or podman-compose), waits for the expected
+        containers, prunes replaced images, then runs health and URL checks.
+    options:
+      podman_compose_update_project_dir:
+        type: path
+        required: true
+        description: Directory holding the compose file.
+      podman_compose_update_compose_file:
+        type: str
+        default: compose.yml
+        description: Compose file name, relative to the project directory.
+      podman_compose_update_project_name:
+        type: str
+        default: ""
+        description: Compose project name (C(-p)). Empty uses the podman-compose default.
+      podman_compose_update_systemd_unit:
+        type: str
+        default: ""
+        description: User systemd unit running the stack. Empty recreates with C(up -d --force-recreate).
+      podman_compose_update_backup_files:
+        type: list
+        elements: str
+        default: ["{{ podman_compose_update_compose_file }}"]
+        description: Files to back up as C(<file>.bak.<timestamp>). Relative paths start at the project directory.
+      podman_compose_update_min_free_gb:
+        type: int
+        default: 8
+        description: Minimum free space (GB) required before pulling.
+      podman_compose_update_free_space_path:
+        type: str
+        default: ""
+        description: Path whose filesystem is measured. Empty uses the podman image store (graphRoot).
+      podman_compose_update_prune_images:
+        type: bool
+        default: true
+        description: Prune dangling images before and after the update.
+      podman_compose_update_journal_vacuum_size:
+        type: str
+        default: ""
+        description: Cap the systemd journal to this size first (needs become). Empty skips it.
+      podman_compose_update_pull_timeout:
+        type: int
+        default: 1800
+        description: Maximum pull time (seconds).
+      podman_compose_update_expected_containers:
+        type: list
+        elements: str
+        default: []
+        description: Container names that must be running and not starting/unhealthy.
+      podman_compose_update_wait_retries:
+        type: int
+        default: 30
+        description: Attempts while waiting for containers.
+      podman_compose_update_wait_delay:
+        type: int
+        default: 10
+        description: Seconds between attempts.
+      podman_compose_update_health_commands:
+        type: list
+        elements: dict
+        default: []
+        description: Commands run on the host after the update, as C(name), C(cmd), C(expect) (substring of stdout).
+      podman_compose_update_url_checks:
+        type: list
+        elements: dict
+        default: []
+        description: URLs checked from the controller, as C(url) and C(status) (list of accepted codes).

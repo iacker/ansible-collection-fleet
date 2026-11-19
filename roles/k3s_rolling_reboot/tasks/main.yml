@@ -1,0 +1,60 @@
+---
+# Reboot ONE node: cordon -> (drain) -> reboot -> wait Ready -> uncordon.
+# kubectl runs on the controller. Use with `serial: 1` and `any_errors_fatal: true`.
+- name: Skip the node when no reboot is needed
+  ansible.builtin.meta: end_host
+  when:
+    - not (k3s_rolling_reboot_needed | bool)
+    - not (k3s_rolling_reboot_force | bool)
+
+- name: Reboot the node out of rotation
+  block:
+    - name: Cordon the node
+      ansible.builtin.command: "{{ k3s_rolling_reboot_kubectl }} cordon {{ k3s_rolling_reboot_node_name }}"
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+    - name: Drain the node
+      ansible.builtin.command: >-
+        {{ k3s_rolling_reboot_kubectl }} drain {{ k3s_rolling_reboot_node_name }}
+        --ignore-daemonsets --delete-emptydir-data
+        --timeout={{ k3s_rolling_reboot_drain_timeout }}
+      delegate_to: localhost
+      become: false
+      changed_when: true
+      when: k3s_rolling_reboot_drain | bool
+
+    - name: Reboot and wait for SSH
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ k3s_rolling_reboot_timeout }}"
+        msg: Rebooting after OS maintenance (iacker.fleet)
+
+    - name: Wait until Kubernetes reports the node Ready
+      ansible.builtin.command: >-
+        {{ k3s_rolling_reboot_kubectl }} get node {{ k3s_rolling_reboot_node_name }}
+        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      delegate_to: localhost
+      become: false
+      register: k3s_rolling_reboot_ready
+      changed_when: false
+      # The API server is down while a single control-plane reboots: keep retrying.
+      until: k3s_rolling_reboot_ready.stdout == "True"
+      retries: "{{ k3s_rolling_reboot_ready_retries }}"
+      delay: "{{ k3s_rolling_reboot_ready_delay }}"
+      when: not ansible_check_mode
+
+    - name: Uncordon the node
+      ansible.builtin.command: "{{ k3s_rolling_reboot_kubectl }} uncordon {{ k3s_rolling_reboot_node_name }}"
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+  rescue:
+    - name: Stop and say what to check
+      ansible.builtin.fail:
+        msg: >-
+          Failed on {{ inventory_hostname }} at task "{{ ansible_failed_task.name }}".
+          The node may still be cordoned. Check with
+          "{{ k3s_rolling_reboot_kubectl }} get nodes", then
+          "{{ k3s_rolling_reboot_kubectl }} uncordon {{ k3s_rolling_reboot_node_name }}".

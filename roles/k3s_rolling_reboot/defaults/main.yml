@@ -1,0 +1,17 @@
+---
+# Command used on the controller to talk to the cluster.
+k3s_rolling_reboot_kubectl: kubectl
+# Kubernetes node name, when it differs from the inventory name.
+k3s_rolling_reboot_node_name: "{{ inventory_hostname }}"
+# Reboot only when the OS asks for it (fact set by iacker.fleet.apt_upgrade)...
+k3s_rolling_reboot_needed: "{{ apt_upgrade_reboot_required | default(false) }}"
+# ...unless forced.
+k3s_rolling_reboot_force: false
+# Draining is off by default: on small clusters it moves heavy pods onto the
+# weakest node, and local-path volumes cannot follow. Cordon + quick reboot
+# lets pods restart in place.
+k3s_rolling_reboot_drain: false
+k3s_rolling_reboot_drain_timeout: 300s
+k3s_rolling_reboot_timeout: 900
+k3s_rolling_reboot_ready_retries: 30
+k3s_rolling_reboot_ready_delay: 10

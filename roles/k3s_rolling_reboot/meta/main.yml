@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: Erwan Billard
+  description: Reboot k3s nodes one at a time with cordon, Ready wait and uncordon.
+  license: MIT
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: Debian
+      versions: [bookworm]
+dependencies: []

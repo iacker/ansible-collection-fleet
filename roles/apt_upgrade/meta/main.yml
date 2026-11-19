@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: Erwan Billard
+  description: Upgrade Debian/Ubuntu packages without rebooting, safe over VPN SSH paths.
+  license: MIT
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: Debian
+      versions: [bookworm]
+dependencies: []

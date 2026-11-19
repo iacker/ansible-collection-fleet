@@ -1,0 +1,25 @@
+---
+podman_compose_update_project_dir: ""          # required
+podman_compose_update_compose_file: compose.yml
+podman_compose_update_project_name: ""         # empty = podman-compose default
+# User systemd unit that runs `podman-compose up -d` (ExecStop: down).
+# Empty = recreate with `podman-compose up -d --force-recreate` directly.
+podman_compose_update_systemd_unit: ""
+# Files copied next to themselves as <file>.bak.<timestamp>, mode 0600.
+# Relative paths are resolved from the project directory.
+podman_compose_update_backup_files:
+  - "{{ podman_compose_update_compose_file }}"
+# Refuse to pull below this much free space on the filesystem holding the images.
+podman_compose_update_min_free_gb: 8
+podman_compose_update_free_space_path: ""   # empty = podman image store (graphRoot)
+podman_compose_update_prune_images: true
+podman_compose_update_journal_vacuum_size: ""  # e.g. 500M, empty = skip
+podman_compose_update_pull_timeout: 1800
+# Container names that must be running (and not starting/unhealthy) afterwards.
+podman_compose_update_expected_containers: []
+podman_compose_update_wait_retries: 30
+podman_compose_update_wait_delay: 10
+# Extra checks on the host: [{name, cmd, expect}], expect = substring of stdout.
+podman_compose_update_health_commands: []
+# HTTP checks from the controller: [{url, status}], status = list of codes.
+podman_compose_update_url_checks: []
